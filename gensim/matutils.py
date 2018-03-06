@@ -827,6 +827,104 @@ def softcossim(vec1, vec2, similarity_matrix):
     return np.clip(result, -1.0, 1.0)
 
 
+def levenshtein_similarity_matrix(
+        dictionary, tfidf=None, alpha=1.8, beta=5, dtype=np.float32):
+    """Constructs a Levenshtein term similarity matrix for computing Soft Cosine Measure.
+
+    Constructs a a sparse term similarity matrix in the :class:`scipy.sparse.csc_matrix` format for computing
+    Soft Cosine Measure between documents.
+
+    Parameters
+    ----------
+    dictionary : :class:`~gensim.corpora.dictionary.Dictionary`
+        A dictionary that specifies a mapping between words and the indices of rows and columns
+        of the resulting term similarity matrix.
+    tfidf : :class:`gensim.models.tfidfmodel.TfidfModel`, optional
+        A model that specifies the relative importance of the terms in the dictionary. The rows
+        of the term similarity matrix will be build in an increasing order of importance of terms,
+        or in the order of term identifiers if None.
+    alpha : float, default set to 1.8
+        Weighting factor relative to diagonal elements
+    beta : int, default set to 5
+        The exponent applied to the edit-distance between two words when building the term similarity matrix.
+    dtype : numpy.dtype, default set to numpy.float32
+        Data-type of the term similarity matrix.
+
+    Returns
+    -------
+    :class:`scipy.sparse.csc_matrix`
+        Term similarity matrix.
+
+    See Also
+    --------
+    :func:`gensim.models.keyedvectors.similarity_matrix`
+        The method for computing a pairwise term-similarity matrix from a collection of word vectors
+    :func:`gensim.matutils.softcossim`
+        The Soft Cosine Measure.
+    :class:`gensim.similarities.docsim.SoftCosineSimilarity`
+        A class for performing corpus-based similarity queries with Soft Cosine Measure.
+
+
+    Notes
+    -----
+    The constructed matrix corresponds to the matrix Mlev defined in section 2.2 of
+    `Delphine Charlet and Geraldine Damnati, "SimBow at SemEval-2017 Task 3: Soft-Cosine Semantic Similarity
+    between Questions for Community Question Answering", 2017
+    <http://www.aclweb.org/anthology/S/S17/S17-2051.pdf>`__.
+
+    This implementation was copied and adapted from
+    gensim.models.keyedvectors.similarity_matrix
+
+    Unlike similarity_matrix, however, it is not an attribute of a given
+    word2vec model but rather can be computed for any given vocabulary.
+    For this reason, we pull it into the general matrix utils.
+
+    """
+    logger.info("constructing a levenshtein term similarity matrix")
+    matrix_order = len(dictionary)
+    matrix_nonzero = [1] * matrix_order
+    from scipy import sparse
+    matrix = sparse.identity(matrix_order, dtype=dtype, format="dok")
+
+    # Decide the order of rows.
+    if tfidf is None:
+        word_indices = range(matrix_order)
+    else:
+        assert max(tfidf.idfs) < matrix_order
+        word_indices = [index for index, _ in sorted(
+            tfidf.idfs.items(), key=lambda x: x[1], reverse=True)]
+
+    # Traverse rows.
+    for row_number, w1_index in enumerate(word_indices):
+        if row_number % 1000 == 0:
+            logger.info(
+                "PROGRESS: at %.02f%% rows (%d / %d, %d skipped, %.06f%% density)",
+                100.0 * (row_number + 1) / matrix_order, row_number + 1, matrix_order,
+                100.0 * matrix.getnnz() / matrix_order**2)
+        # Traverse columns
+        # TODO: determine community preference for pylev.levenshtein or distance.levenshtein
+        import pylev
+        columns = (
+            (w2_index, pylev.levenshtein(
+                dictionary[w1_index], dictionary[w2_index])/
+             float(max(len(dictionary[w1_index]), len(dictionary[w2_index]))))
+            for w2_index in range(w1_index + 1, matrix_order)
+            if w1_index != w2_index)
+
+        for w2_index, similarity in columns:
+            element = alpha*(1-similarity)**beta
+            matrix[w1_index, w2_index] = element
+            matrix_nonzero[w1_index] += 1
+            matrix[w2_index, w1_index] = element
+            matrix_nonzero[w2_index] += 1
+
+    logger.info(
+        "constructed a term similarity matrix with %0.6f %% nonzero elements",
+        100.0 * matrix.getnnz() / matrix_order**2
+    )
+    return matrix.tocsc()
+
+
 def isbow(vec):
     """Checks if vector passed is in BoW format.
 
