@@ -10,7 +10,9 @@ import numpy as np
 from scipy.special import psi  # gamma function utils
 
 from gensim.corpora import Dictionary
+from gensim.models import TfidfModel
 import gensim.matutils as matutils
+
 
 
 # we'll define known, good (slow) version of functions here
@@ -143,41 +145,81 @@ class TestLdaModelInner(unittest.TestCase):
 
 
 class TestLevenshteinSimilarityMatrix(unittest.TestCase):
+    """Test levenshtein_similarity_matrix returns expected results."""
+
+    """    
+    For an explanation of the Levenshtein distance algorithm see, for example: 
+    https://people.cs.pitt.edu/~kirk/cs1501/Pruhs/Spring2006/assignments/editdistance/Levenshtein%20Distance.htm
+    """
+
     def setUp(self):
-        mini_dict = {0: 'abc', 1: 'lab', 2: 'bad'}
+        from gensim.test.utils import common_corpus, common_dictionary
+        self.mini_texts = [['abc'],
+                           ['lab'],
+                           ['bad']]
+        self.mini_dict = Dictionary(self.mini_texts)
+        self.mini_corpus = [self.mini_dict.doc2bow(text)
+                            for text in self.mini_texts]
+        self.mini_tfidf = TfidfModel(self.mini_corpus)
+        self.corpus = common_corpus
+        self.dictionary = common_dictionary
+        self.tfidf = TfidfModel(common_corpus)
 
-    def levenshtein_similarity_matrix(self):
-        """Test levenshtein_similarity_matrix returns expected results."""
-        corpus = [["government", "denied", "holiday"],
-                  ["holiday", "slowing", "hollingworth"]]
-        dictionary = Dictionary(corpus)
-        corpus = [dictionary.doc2bow(document) for document in corpus]
+        # Some different initializations of the levenshtein similarity matrix
+        self.similarity_matrix = matutils.levenshtein_similarity_matrix(
+            self.dictionary).todense()
+        self.similarity_matrix_tfidf = matutils.levenshtein_similarity_matrix(
+            self.dictionary, tfidf=self.tfidf).todense()
+        self.similarity_matrix_alpha = matutils.levenshtein_similarity_matrix(
+            self.dictionary, alpha=1).todense()
+        self.similarity_matrix_beta = matutils.levenshtein_similarity_matrix(
+            self.dictionary, beta=1).todense()
+        self.similarity_matrix_mini = matutils.levenshtein_similarity_matrix(
+            self.mini_dict).todense()
 
-        # checking symmetry and the existence of ones on the diagonal
-        similarity_matrix = self.levenshtein_similarity_matrix(corpus,
-                                                   dictionary).todense()
-        self.assertTrue((similarity_matrix.T == similarity_matrix).all())
+    def test_formula(self):
+        # Check that the formula is working correctly,
+        # Manually compute the term similarity matrix for the mini_dict
+        mini_lev_raw = np.array([[0., 1-2/3., 1-3/3.],
+                                 [1-2/3., 0., 1-2/3.],
+                                 [1-3/3., 1-2/3., 0.]])
+        mini_lev = 1.8*mini_lev_raw**5 + np.identity(3)
+
+        # for numerical tolerances of the np.allclose() method see
+        # https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.allclose.html
+        self.assertTrue(np.allclose(mini_lev, self.similarity_matrix_mini))
+
+    def test_matrix_symmetry(self):
+        # checking symmetry
         self.assertTrue(
-            (np.diag(similarity_matrix) == similarity_matrix).all())
+            (self.similarity_matrix.T == self.similarity_matrix).all())
 
-        # checking that thresholding works as expected
-        similarity_matrix = self.levenshtein_similarity_matrix(corpus, dictionary,
-                                                   threshold=0.45).todense()
-        self.assertEquals(18, np.sum(similarity_matrix == 0))
+    def test_ones_along_diagonal(self):
+        # Check existence of ones on the diagonal
+        self.assertTrue(
+            (np.diag(self.similarity_matrix) ==
+             np.ones(self.similarity_matrix.shape[0])).all())
 
-        # checking that exponent works as expected
-        similarity_matrix = self.levenshtein_similarity_matrix(corpus, dictionary,
-                                                   exponent=1.0).todense()
-        self.assertAlmostEqual(9.5788956, np.sum(similarity_matrix))
+    # TODO: Write good tests for alpha and beta
+    # def test_alpha(self):
+    #     # checking that alpha works as expected
+    #     self.similarity_matrix_alpha
+    #     self.assertEquals(18, np.sum(similarity_matrix == 0))
+    #
+    # def test_beta(self):
+    #     # checking that beta works as expected
+    #     similarity_matrix = matutils.levenshtein_similarity_matrix(
+    #         self.dictionary, beta=1).todense()
+    #     self.assertAlmostEqual(9.5788956, np.sum(similarity_matrix))
 
-        # checking that nonzero_limit works as expected
-        similarity_matrix = self.levenshtein_similarity_matrix(corpus, dictionary,
-                                                   nonzero_limit=4).todense()
-        self.assertEquals(4, np.sum(similarity_matrix == 0))
+    # TODO: Come up with good example to understand effect of supplying tfidf
+    def test_tfidf_term_ordering(self):
+        pass
 
-        similarity_matrix = self.levenshtein_similarity_matrix(corpus, dictionary,
-                                                   nonzero_limit=3).todense()
-        self.assertEquals(20, np.sum(similarity_matrix == 0))
+    def test_at_most_one(self):
+        # Checking that all matrix entries are at most one when alpha=1
+        self.assertTrue((self.similarity_matrix_alpha <= 1).all())
+
 
 
 if __name__ == '__main__':

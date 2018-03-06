@@ -831,8 +831,9 @@ def levenshtein_similarity_matrix(
         dictionary, tfidf=None, alpha=1.8, beta=5, dtype=np.float32):
     """Constructs a Levenshtein term similarity matrix for computing Soft Cosine Measure.
 
-    Constructs a a sparse term similarity matrix in the :class:`scipy.sparse.csc_matrix` format for computing
-    Soft Cosine Measure between documents.
+    Constructs a sparse Levenshtein term similarity matrix in the
+    :class:`scipy.sparse.csc_matrix` format for computing Soft Cosine
+    Measure between documents.
 
     Parameters
     ----------
@@ -897,9 +898,9 @@ def levenshtein_similarity_matrix(
     for row_number, w1_index in enumerate(word_indices):
         if row_number % 1000 == 0:
             logger.info(
-                "PROGRESS: at %.02f%% rows (%d / %d, %d skipped, %.06f%% density)",
-                100.0 * (row_number + 1) / matrix_order, row_number + 1, matrix_order,
-                100.0 * matrix.getnnz() / matrix_order**2)
+                "PROGRESS: at %.02f%% rows (%d / %d, %.06f%% density)",
+                100.0 * (row_number + 1) / matrix_order, row_number + 1,
+                matrix_order, 100.0 * matrix.getnnz() / matrix_order**2)
         # Traverse columns
         # TODO: determine community preference for pylev.levenshtein or distance.levenshtein
         import pylev
