@@ -882,7 +882,6 @@ def levenshtein_similarity_matrix(
     """
     logger.info("constructing a levenshtein term similarity matrix")
     matrix_order = len(dictionary)
-    matrix_nonzero = [1] * matrix_order
     from scipy import sparse
     matrix = sparse.identity(matrix_order, dtype=dtype, format="dok")
 
@@ -914,9 +913,7 @@ def levenshtein_similarity_matrix(
         for w2_index, similarity in columns:
             element = alpha*(1-similarity)**beta
             matrix[w1_index, w2_index] = element
-            matrix_nonzero[w1_index] += 1
             matrix[w2_index, w1_index] = element
-            matrix_nonzero[w2_index] += 1
 
     logger.info(
         "constructed a term similarity matrix with %0.6f %% nonzero elements",
