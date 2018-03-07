@@ -919,18 +919,6 @@ def levenshtein_similarity_matrix(
             matrix[row_number, col_number] = element
             matrix[col_number, row_number] = element
 
-        # columns = (
-        #     (w2_index, pylev.levenshtein(
-        #         dictionary[w1_index], dictionary[w2_index])/
-        #      float(max(len(dictionary[w1_index]), len(dictionary[w2_index]))))
-        #     for w2_index in range(w1_index + 1, matrix_order)
-        #     if w1_index != w2_index)
-
-        # for w2_index, similarity in columns:
-        #     element = alpha*(1-similarity)**beta
-        #     matrix[w1_index, w2_index] = element
-        #     matrix[w2_index, w1_index] = element
-
     logger.info(
         "constructed a term similarity matrix with %0.6f %% nonzero elements",
         100.0 * matrix.getnnz() / matrix_order**2

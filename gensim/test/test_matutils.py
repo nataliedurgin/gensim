@@ -155,13 +155,12 @@ class TestLevenshteinSimilarityMatrix(unittest.TestCase):
     def setUp(self):
         from gensim.test.utils import common_corpus, common_dictionary
         # Example to highlight that the tfidf reordering happens successfully
-        self.mini_texts = [['abc'],
-                           ['lab', 'abc'],
-                           ['bad', 'abc']]
+        self.mini_texts = [['ab'], ['abc', 'ab'], ['bcd', 'ab']]
         self.mini_dict = Dictionary(self.mini_texts)
         self.mini_corpus = [self.mini_dict.doc2bow(text)
                             for text in self.mini_texts]
         self.mini_tfidf = TfidfModel(self.mini_corpus)
+
         self.corpus = common_corpus
         self.dictionary = common_dictionary
         self.tfidf = TfidfModel(common_corpus)
@@ -169,22 +168,28 @@ class TestLevenshteinSimilarityMatrix(unittest.TestCase):
         # Some different initializations of the levenshtein similarity matrix
         self.similarity_matrix = matutils.levenshtein_similarity_matrix(
             self.dictionary).todense()
-        self.similarity_matrix_tfidf = matutils.levenshtein_similarity_matrix(
-            self.mini_dict, tfidf=self.mini_tfidf).todense()
         self.similarity_matrix_alpha = matutils.levenshtein_similarity_matrix(
-            self.dictionary, alpha=1).todense()
+            self.mini_dict, alpha=1).todense()
         self.similarity_matrix_beta = matutils.levenshtein_similarity_matrix(
-            self.dictionary, beta=1).todense()
+            self.mini_dict, beta=1).todense()
         self.similarity_matrix_mini = matutils.levenshtein_similarity_matrix(
             self.mini_dict).todense()
+        self.similarity_matrix_tfidf = matutils.levenshtein_similarity_matrix(
+            self.mini_dict, tfidf=self.mini_tfidf).todense()
+
+        # Some explicitly computed edit-distance matrices
+        self.mini_lev_raw = np.array([[0., 1 - 1 / 3., 1 - 3 / 3.],
+                                      [1 - 1 / 3., 0., 1 - 2 / 3.],
+                                      [1 - 3 / 3., 1 - 2 / 3., 0.]])
+        self.tfidf_lev_raw = np.array([[0., 1 - 2 / 3., 1 - 1 / 3.],
+                                       [1 - 2 / 3., 0., 1 - 3 / 3.],
+                                       [1 - 1 / 3., 1 - 3 / 3., 0.]])
 
     def test_formula(self):
         # Check that the formula is working correctly,
         # Manually compute the term similarity matrix for the mini_dict
-        mini_lev_raw = np.array([[0., 1-2/3., 1-3/3.],
-                                 [1-2/3., 0., 1-2/3.],
-                                 [1-3/3., 1-2/3., 0.]])
-        mini_lev = 1.8*mini_lev_raw**5 + np.identity(3)
+        # Assume the default term ordering
+        mini_lev = 1.8 * self.mini_lev_raw ** 5 + np.identity(3)
 
         # for numerical tolerances of the np.allclose() method see
         # https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.allclose.html
@@ -201,21 +206,21 @@ class TestLevenshteinSimilarityMatrix(unittest.TestCase):
             (np.diag(self.similarity_matrix) ==
              np.ones(self.similarity_matrix.shape[0])).all())
 
-    # TODO: Write good tests for alpha and beta
-    # def test_alpha(self):
-    #     # checking that alpha works as expected
-    #     self.similarity_matrix_alpha
-    #     self.assertEquals(18, np.sum(similarity_matrix == 0))
-    #
-    # def test_beta(self):
-    #     # checking that beta works as expected
-    #     similarity_matrix = matutils.levenshtein_similarity_matrix(
-    #         self.dictionary, beta=1).todense()
-    #     self.assertAlmostEqual(9.5788956, np.sum(similarity_matrix))
+    def test_alpha(self):
+        # checking that alpha works as expected
+        mini_lev = 1 * self.mini_lev_raw ** 5 + np.identity(3)
+        self.assertTrue(np.allclose(mini_lev, self.similarity_matrix_alpha))
 
-    # TODO: Come up with good example to understand effect of supplying tfidf
+    def test_beta(self):
+        # checking that beta works as expected
+        mini_lev = 1.8 * self.mini_lev_raw ** 1 + np.identity(3)
+        self.assertTrue(np.allclose(mini_lev, self.similarity_matrix_beta))
+
     def test_tfidf_term_ordering(self):
-        pass
+        # Check to make sure supplying tfidf reordered the scores
+        # This test is a bit fragile but it is something
+        tfidf_lev = 1.8 * self.tfidf_lev_raw ** 5 + np.identity(3)
+        self.assertTrue(np.allclose(tfidf_lev, self.similarity_matrix_tfidf))
 
     def test_at_most_one(self):
         # Checking that all matrix entries are at most one when alpha=1
