@@ -154,9 +154,10 @@ class TestLevenshteinSimilarityMatrix(unittest.TestCase):
 
     def setUp(self):
         from gensim.test.utils import common_corpus, common_dictionary
+        # Example to highlight that the tfidf reordering happens successfully
         self.mini_texts = [['abc'],
-                           ['lab'],
-                           ['bad']]
+                           ['lab', 'abc'],
+                           ['bad', 'abc']]
         self.mini_dict = Dictionary(self.mini_texts)
         self.mini_corpus = [self.mini_dict.doc2bow(text)
                             for text in self.mini_texts]
@@ -169,7 +170,7 @@ class TestLevenshteinSimilarityMatrix(unittest.TestCase):
         self.similarity_matrix = matutils.levenshtein_similarity_matrix(
             self.dictionary).todense()
         self.similarity_matrix_tfidf = matutils.levenshtein_similarity_matrix(
-            self.dictionary, tfidf=self.tfidf).todense()
+            self.mini_dict, tfidf=self.mini_tfidf).todense()
         self.similarity_matrix_alpha = matutils.levenshtein_similarity_matrix(
             self.dictionary, alpha=1).todense()
         self.similarity_matrix_beta = matutils.levenshtein_similarity_matrix(

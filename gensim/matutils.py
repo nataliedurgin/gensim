@@ -904,17 +904,32 @@ def levenshtein_similarity_matrix(
         # Traverse columns
         # TODO: determine community preference for pylev.levenshtein or distance.levenshtein
         import pylev
-        columns = (
-            (w2_index, pylev.levenshtein(
-                dictionary[w1_index], dictionary[w2_index])/
-             float(max(len(dictionary[w1_index]), len(dictionary[w2_index]))))
-            for w2_index in range(w1_index + 1, matrix_order)
-            if w1_index != w2_index)
+        columns = []
+        for col_number in range(row_number + 1, matrix_order):
+            if row_number != col_number:
+                w2_index = word_indices[col_number]
+                w1 = dictionary[w1_index]
+                w2 = dictionary[w2_index]
+                similarity = pylev.levenshtein(w1, w2)/\
+                             float(max(len(w1), len(w2)))
+                columns.append((col_number, similarity))
 
-        for w2_index, similarity in columns:
-            element = alpha*(1-similarity)**beta
-            matrix[w1_index, w2_index] = element
-            matrix[w2_index, w1_index] = element
+        for col_number, similarity in columns:
+            element = alpha * (1 - similarity) ** beta
+            matrix[row_number, col_number] = element
+            matrix[col_number, row_number] = element
+
+        # columns = (
+        #     (w2_index, pylev.levenshtein(
+        #         dictionary[w1_index], dictionary[w2_index])/
+        #      float(max(len(dictionary[w1_index]), len(dictionary[w2_index]))))
+        #     for w2_index in range(w1_index + 1, matrix_order)
+        #     if w1_index != w2_index)
+
+        # for w2_index, similarity in columns:
+        #     element = alpha*(1-similarity)**beta
+        #     matrix[w1_index, w2_index] = element
+        #     matrix[w2_index, w1_index] = element
 
     logger.info(
         "constructed a term similarity matrix with %0.6f %% nonzero elements",
