@@ -150,6 +150,7 @@ class TestLevenshteinSimilarityMatrix(unittest.TestCase):
     """    
     For an explanation of the Levenshtein distance algorithm see, for example: 
     https://people.cs.pitt.edu/~kirk/cs1501/Pruhs/Spring2006/assignments/editdistance/Levenshtein%20Distance.htm
+    Relevant for manually computing edit-distance in test cases
     """
 
     def setUp(self):

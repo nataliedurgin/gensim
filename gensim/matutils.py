@@ -827,6 +827,7 @@ def softcossim(vec1, vec2, similarity_matrix):
     return np.clip(result, -1.0, 1.0)
 
 
+# TODO: Speed this up
 def levenshtein_similarity_matrix(
         dictionary, tfidf=None, alpha=1.8, beta=5, dtype=np.float32):
     """Constructs a Levenshtein term similarity matrix for computing Soft Cosine Measure.
