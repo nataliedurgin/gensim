@@ -33,7 +33,6 @@ class TestEuclideanKeyedVectors(unittest.TestCase):
         documents = [["government", "denied", "holiday"],
                   ["holiday", "slowing", "hollingworth"]]
         dictionary = Dictionary(documents)
-        corpus = [dictionary.doc2bow(document) for document in documents]
 
         # checking symmetry and the existence of ones on the diagonal
         similarity_matrix = self.vectors.similarity_matrix(
@@ -62,7 +61,7 @@ class TestEuclideanKeyedVectors(unittest.TestCase):
             dictionary, nonzero_limit=3).todense()
         self.assertEquals(20, np.sum(similarity_matrix == 0))
 
-        # TODO: Add unit test to check that supplied tfidf reorders terms
+        # TODO: Add unit test to check that supplied tfidf does stuff
 
     def test_most_similar(self):
         """Test most_similar returns expected results."""

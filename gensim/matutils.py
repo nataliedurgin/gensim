@@ -882,50 +882,69 @@ def levenshtein_similarity_matrix(
     For this reason, we pull it into the general matrix utils.
 
     """
-    logger.info("constructing a levenshtein term similarity matrix")
+    logger.info("constructing a term similarity matrix")
     matrix_order = len(dictionary)
-    from scipy import sparse
+    matrix_nonzero = [1] * matrix_order
     matrix = sparse.identity(matrix_order, dtype=dtype, format="dok")
-
+    num_skipped = 0
     # Decide the order of rows.
     if tfidf is None:
         word_indices = range(matrix_order)
     else:
         assert max(tfidf.idfs) < matrix_order
-        word_indices = [index for index, _ in sorted(
-            tfidf.idfs.items(), key=lambda x: x[1], reverse=True)]
+        word_indices = [
+            index for index, _ in
+            sorted(tfidf.idfs.items(), key=lambda x: x[1], reverse=True)
+        ]
 
     # Traverse rows.
     for row_number, w1_index in enumerate(word_indices):
         if row_number % 1000 == 0:
             logger.info(
-                "PROGRESS: at %.02f%% rows (%d / %d, %.06f%% density)",
+                "PROGRESS: at %.02f%% rows (%d / %d, %d skipped, %.06f%% density)",
                 100.0 * (row_number + 1) / matrix_order, row_number + 1,
-                matrix_order, 100.0 * matrix.getnnz() / matrix_order**2)
-        # Traverse columns
-        # TODO: determine community preference for pylev.levenshtein or distance.levenshtein
-        import pylev
-        columns = []
-        for col_number in range(row_number + 1, matrix_order):
-            if row_number != col_number:
-                w2_index = word_indices[col_number]
-                w1 = dictionary[w1_index]
-                w2 = dictionary[w2_index]
-                similarity = pylev.levenshtein(w1, w2)/\
-                             float(max(len(w1), len(w2)))
-                columns.append((col_number, similarity))
+                matrix_order,
+                num_skipped, 100.0 * matrix.getnnz() / matrix_order ** 2)
+        w1 = dictionary[w1_index]
+        if w1 not in self.vocab:
+            num_skipped += 1
+            continue  # A word from the dictionary is not present in the word2vec model.
 
-        for col_number, similarity in columns:
-            element = alpha * (1 - similarity) ** beta
-            matrix[row_number, col_number] = element
-            matrix[col_number, row_number] = element
+        # Traverse upper triangle columns.
+        if matrix_order <= nonzero_limit + 1:  # Traverse all columns.
+            columns = (
+                (w2_index, self.similarity(w1, dictionary[w2_index]))
+                for w2_index in range(w1_index + 1, matrix_order)
+                if w1_index != w2_index and dictionary[w2_index] in self.vocab)
+        else:  # Traverse only columns corresponding to the embeddings closest to w1.
+            num_nonzero = matrix_nonzero[w1_index] - 1
+            columns = (
+                (dictionary.token2id[w2], similarity)
+                for _, (w2, similarity)
+                in zip(
+                range(nonzero_limit - num_nonzero),
+                self.most_similar(positive=[w1],
+                                  topn=nonzero_limit - num_nonzero)
+            )
+                if w2 in dictionary.token2id
+            )
+            columns = sorted(columns, key=lambda x: x[0])
 
+        for w2_index, similarity in columns:
+            # Ensure that we don't exceed `nonzero_limit` by mirroring the upper triangle.
+            if similarity > threshold and matrix_nonzero[
+                w2_index] <= nonzero_limit:
+                element = similarity ** exponent
+                matrix[w1_index, w2_index] = element
+                matrix_nonzero[w1_index] += 1
+                matrix[w2_index, w1_index] = element
+                matrix_nonzero[w2_index] += 1
     logger.info(
         "constructed a term similarity matrix with %0.6f %% nonzero elements",
-        100.0 * matrix.getnnz() / matrix_order**2
+        100.0 * matrix.getnnz() / matrix_order ** 2
     )
     return matrix.tocsc()
-
+    
 
 def isbow(vec):
     """Checks if vector passed is in BoW format.

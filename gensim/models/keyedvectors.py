@@ -512,7 +512,6 @@ class WordEmbeddingsKeyedVectors(BaseKeyedVectors):
                 num_skipped += 1
                 continue  # A word from the dictionary is not present in the word2vec model.
 
-            # TODO: Possible bug, w2_index does not consider the tfidf ordering
             # Traverse upper triangle columns.
             if matrix_order <= nonzero_limit + 1:  # Traverse all columns.
                 columns = (
